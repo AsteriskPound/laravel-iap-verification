@@ -1,0 +1,45 @@
+{
+    "name": "asteriskpound/laravel-iap-verification",
+    "description": "Server-side in-app-purchase receipt verification and webhook handling for Apple App Store and Google Play — plain Laravel, no NativePHP dependency.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["laravel", "in-app-purchase", "iap", "app-store-server-api", "google-play-billing", "subscriptions", "webhooks"],
+    "require": {
+        "php": "^8.3",
+        "illuminate/support": "^11.0|^12.0|^13.0",
+        "illuminate/http": "^11.0|^12.0|^13.0",
+        "aporat/store-receipt-validator": "^9.0",
+        "google/apiclient": "^2.18"
+    },
+    "require-dev": {
+        "pestphp/pest": "^3.0",
+        "orchestra/testbench": "^9.0|^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Asteriskpound\\LaravelIapVerification\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Asteriskpound\\LaravelIapVerification\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Asteriskpound\\LaravelIapVerification\\IapVerificationServiceProvider"
+            ],
+            "aliases": {
+                "IapVerification": "Asteriskpound\\LaravelIapVerification\\Facades\\IapVerification"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    }
+}
