@@ -20,7 +20,9 @@ return new class extends Migration
             $table->string('notification_type')->nullable();
             $table->timestamp('processed_at');
 
-            $table->unique(['platform', 'notification_id']);
+            // Named explicitly — Laravel's auto-generated name for this index exceeds
+            // MySQL's 64-character identifier limit.
+            $table->unique(['platform', 'notification_id'], 'iap_processed_notifications_platform_notification_unique');
         });
     }
 
