@@ -40,7 +40,7 @@ class AppleVerifier
                 environment: $config['environment'] === 'sandbox' ? Environment::SANDBOX : Environment::PRODUCTION,
             );
 
-            $transaction = $validator->getTransactionInfo($transactionId);
+            $transaction = $validator->getTransactionInfo($this->lookupTransactionId($transactionId));
 
             if ($transaction->getRevocationDate() !== null) {
                 return VerifiedPurchase::invalid(
@@ -56,10 +56,35 @@ class AppleVerifier
                 environment: $transaction->getEnvironment()->value,
                 rawTransactionId: $transaction->getTransactionId(),
                 isTrial: $transaction->getOfferDiscountType() === 'FREE_TRIAL',
+                originalTransactionId: $transaction->getOriginalTransactionId(),
             );
         } catch (Throwable $e) {
             return VerifiedPurchase::invalid($e->getMessage());
         }
+    }
+
+    /**
+     * StoreKit 2 clients send the signed transaction (JWS) rather than a bare
+     * ID, but the App Store Server API's Get Transaction Info endpoint only
+     * accepts the numeric transaction ID. The JWS payload is read *unverified*
+     * here on purpose: it only supplies the lookup key, and the transaction
+     * returned by Apple for that key is the authoritative (signed) record.
+     */
+    public function lookupTransactionId(string $transactionIdOrJws): string
+    {
+        $segments = explode('.', $transactionIdOrJws);
+
+        if (count($segments) !== 3) {
+            return $transactionIdOrJws;
+        }
+
+        $payload = json_decode((string) base64_decode(strtr($segments[1], '-_', '+/'), true), associative: true);
+
+        if (! is_array($payload) || ! isset($payload['transactionId'])) {
+            throw new \InvalidArgumentException('Signed transaction has no transactionId in its payload');
+        }
+
+        return (string) $payload['transactionId'];
     }
 
     private function toDateTime(mixed $value): ?\DateTimeImmutable

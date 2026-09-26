@@ -14,5 +14,7 @@ class SubscriptionRenewed
         public ?string $productId,
         public ?string $transactionId,
         public ?\DateTimeImmutable $expiresDate,
+        /** Stable across renewals — see VerifiedPurchase::$originalTransactionId. */
+        public ?string $originalTransactionId = null,
     ) {}
 }

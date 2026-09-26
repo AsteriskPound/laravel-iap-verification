@@ -46,6 +46,13 @@ if ($result->isValid()) {
 }
 ```
 
+On iOS, `transactionId` may be either the bare transaction ID or the StoreKit 2 signed transaction (JWS) the
+device hands you — the ID is read from the JWS payload and looked up against Apple.
+
+Store `$result->originalTransactionId` against the user you grant to. It stays the same across every renewal
+of the subscription (Apple's `originalTransactionId`, Google's purchase token), so it's the key for keeping one
+store subscription bound to one account and for matching webhook events back to that account.
+
 ## Webhooks
 
 Two routes are registered automatically (disable via `IAP_VERIFICATION_REGISTER_ROUTES=false` and mount them
@@ -59,7 +66,9 @@ yourself if you'd rather):
 
 Both dispatch Laravel events (`SubscriptionRenewed`, `SubscriptionExpired`, `SubscriptionRefunded`,
 `SubscriptionRevoked`) — listen for those in your own app to keep your entitlement model in sync. This
-package deliberately doesn't assume your schema; it only tells you what happened.
+package deliberately doesn't assume your schema; it only tells you what happened. Every event carries
+`originalTransactionId` for that matching. Google's notifications carry no expiry date, so on
+`SubscriptionRenewed` with a null `expiresDate`, re-verify the purchase token to get the new one.
 
 ## License
 

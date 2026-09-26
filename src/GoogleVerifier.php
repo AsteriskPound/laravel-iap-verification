@@ -78,6 +78,8 @@ class GoogleVerifier
             environment: 'production', // subscriptionsv2 doesn't distinguish test purchases the way Apple does
             rawTransactionId: $purchaseToken,
             isTrial: $lineItem?->getOfferPhase()?->getFreeTrial() !== null,
+            // A Play subscription keeps the same purchase token across renewals.
+            originalTransactionId: $purchaseToken,
         );
     }
 
@@ -93,6 +95,7 @@ class GoogleVerifier
             expiresDate: null,
             environment: $product->getPurchaseType() === 0 ? 'sandbox' : 'production', // purchaseType: 0 = test
             rawTransactionId: $purchaseToken,
+            originalTransactionId: $purchaseToken,
         );
     }
 }

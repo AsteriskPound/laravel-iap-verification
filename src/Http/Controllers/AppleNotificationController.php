@@ -44,6 +44,7 @@ class AppleNotificationController extends Controller
         $productId = $transaction?->getProductId();
         $transactionId = $transaction?->getTransactionId();
         $expiresDate = $transaction?->getExpiresDate();
+        $originalTransactionId = $transaction?->getOriginalTransactionId();
 
         // Claim before dispatching: this is the atomic step that prevents two
         // concurrent redeliveries of the same notification from both firing
@@ -53,10 +54,10 @@ class AppleNotificationController extends Controller
         }
 
         match ($type) {
-            'DID_RENEW' => SubscriptionRenewed::dispatch('ios', $productId, $transactionId, $expiresDate ? \DateTimeImmutable::createFromInterface($expiresDate) : null),
-            'EXPIRED' => SubscriptionExpired::dispatch('ios', $productId, $transactionId),
-            'REFUND' => SubscriptionRefunded::dispatch('ios', $productId, $transactionId),
-            'REVOKE' => SubscriptionRevoked::dispatch('ios', $productId, $transactionId),
+            'DID_RENEW' => SubscriptionRenewed::dispatch('ios', $productId, $transactionId, $expiresDate ? \DateTimeImmutable::createFromInterface($expiresDate) : null, $originalTransactionId),
+            'EXPIRED' => SubscriptionExpired::dispatch('ios', $productId, $transactionId, $originalTransactionId),
+            'REFUND' => SubscriptionRefunded::dispatch('ios', $productId, $transactionId, $originalTransactionId),
+            'REVOKE' => SubscriptionRevoked::dispatch('ios', $productId, $transactionId, $originalTransactionId),
             default => null, // SUBSCRIBED, DID_CHANGE_RENEWAL_STATUS, PRICE_INCREASE, etc. — no event, just recorded above
         };
 

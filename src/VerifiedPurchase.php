@@ -13,6 +13,12 @@ class VerifiedPurchase
         public ?string $rawTransactionId = null,
         public ?string $error = null,
         public bool $isTrial = false,
+        /**
+         * The ID that stays the same across every renewal of one subscription —
+         * Apple's originalTransactionId, Google's purchase token. Use it to bind a
+         * subscription to a single user and to match webhook events back to them.
+         */
+        public ?string $originalTransactionId = null,
     ) {}
 
     public function isValid(): bool

@@ -46,10 +46,26 @@ test('it dispatches SubscriptionRenewed for notification type 2 and records it a
         ]))
         ->assertOk();
 
-    Event::assertDispatched(SubscriptionRenewed::class, fn ($event) => $event->platform === 'android' && $event->productId === 'premium_monthly'
+    Event::assertDispatched(SubscriptionRenewed::class, fn ($event) => $event->platform === 'android'
+        && $event->productId === 'premium_monthly'
+        && $event->originalTransactionId === 'token_abc'
     );
     expect(ProcessedNotification::alreadyProcessed('android', 'msg-1'))->toBeTrue();
 });
+
+test('it treats a recovered or restarted subscription as a renewal', function (int $notificationType) {
+    Event::fake([SubscriptionRenewed::class]);
+
+    $this->withToken('test-token')
+        ->postJson('/iap-verification/webhooks/google', pubSubPayload([
+            'notificationType' => $notificationType,
+            'subscriptionId' => 'premium_monthly',
+            'purchaseToken' => 'token_abc',
+        ]))
+        ->assertOk();
+
+    Event::assertDispatched(SubscriptionRenewed::class, fn ($event) => $event->originalTransactionId === 'token_abc');
+})->with(['recovered' => 1, 'restarted' => 7]);
 
 test('it dispatches SubscriptionExpired for notification type 13', function () {
     Event::fake([SubscriptionExpired::class]);

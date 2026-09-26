@@ -13,5 +13,7 @@ class SubscriptionExpired
         public string $platform,
         public ?string $productId,
         public ?string $transactionId,
+        /** Stable across renewals — see VerifiedPurchase::$originalTransactionId. */
+        public ?string $originalTransactionId = null,
     ) {}
 }

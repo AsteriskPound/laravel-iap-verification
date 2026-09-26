@@ -29,7 +29,11 @@ use Illuminate\Routing\Controller;
 class GoogleNotificationController extends Controller
 {
     /** @see https://developer.android.com/google/play/billing/rtdn-reference */
+    private const NOTIFICATION_TYPE_RECOVERED = 1;
+
     private const NOTIFICATION_TYPE_RENEWED = 2;
+
+    private const NOTIFICATION_TYPE_RESTARTED = 7;
 
     private const NOTIFICATION_TYPE_REVOKED = 12;
 
@@ -78,14 +82,17 @@ class GoogleNotificationController extends Controller
             $purchaseToken = $subscriptionNotification['purchaseToken'] ?? null;
 
             match ($type) {
-                self::NOTIFICATION_TYPE_RENEWED => SubscriptionRenewed::dispatch('android', $productId, $purchaseToken, null),
-                self::NOTIFICATION_TYPE_EXPIRED => SubscriptionExpired::dispatch('android', $productId, $purchaseToken),
-                self::NOTIFICATION_TYPE_REVOKED => SubscriptionRevoked::dispatch('android', $productId, $purchaseToken),
+                // RTDN carries no expiry — listeners re-verify the token to get it.
+                self::NOTIFICATION_TYPE_RENEWED,
+                self::NOTIFICATION_TYPE_RECOVERED,
+                self::NOTIFICATION_TYPE_RESTARTED => SubscriptionRenewed::dispatch('android', $productId, $purchaseToken, null, $purchaseToken),
+                self::NOTIFICATION_TYPE_EXPIRED => SubscriptionExpired::dispatch('android', $productId, $purchaseToken, $purchaseToken),
+                self::NOTIFICATION_TYPE_REVOKED => SubscriptionRevoked::dispatch('android', $productId, $purchaseToken, $purchaseToken),
                 default => null,
             };
         } elseif ($voidedPurchaseNotification) {
             $purchaseToken = $voidedPurchaseNotification['purchaseToken'] ?? null;
-            SubscriptionRefunded::dispatch('android', null, $purchaseToken);
+            SubscriptionRefunded::dispatch('android', null, $purchaseToken, $purchaseToken);
         }
         // else: oneTimeProductNotification or a type this controller doesn't
         // handle yet — already claimed above so Pub/Sub stops retrying.
