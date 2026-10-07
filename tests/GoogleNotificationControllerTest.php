@@ -4,10 +4,38 @@ use Asteriskpound\LaravelIapVerification\Events\SubscriptionExpired;
 use Asteriskpound\LaravelIapVerification\Events\SubscriptionRenewed;
 use Asteriskpound\LaravelIapVerification\Events\SubscriptionRevoked;
 use Asteriskpound\LaravelIapVerification\ProcessedNotification;
+use Google\AccessToken\Verify;
 use Illuminate\Support\Facades\Event;
 
+const PUBSUB_AUDIENCE = 'https://example.com/iap-verification/webhooks/google';
+
+const PUBSUB_SERVICE_ACCOUNT = 'rtdn-push@example.iam.gserviceaccount.com';
+
+/**
+ * Stands in for Google's signature check: 'test-token' verifies to $claims,
+ * anything else fails as a bad signature would.
+ *
+ * @param  array<string, mixed>  $claims
+ */
+function fakeGoogleTokenVerifier(array $claims = []): void
+{
+    $verifier = Mockery::mock(Verify::class);
+    $verifier->shouldReceive('verifyIdToken')->andReturnUsing(
+        fn (string $token, string $audience): array|false => $token === 'test-token'
+            ? [...['aud' => PUBSUB_AUDIENCE, 'email' => PUBSUB_SERVICE_ACCOUNT, 'email_verified' => true], ...$claims]
+            : false
+    );
+
+    app()->instance(Verify::class, $verifier);
+}
+
 beforeEach(function () {
-    config(['iap-verification.webhooks.google_pubsub_token' => 'test-token']);
+    config([
+        'iap-verification.webhooks.google_pubsub_audience' => PUBSUB_AUDIENCE,
+        'iap-verification.webhooks.google_pubsub_service_account' => PUBSUB_SERVICE_ACCOUNT,
+    ]);
+
+    fakeGoogleTokenVerifier();
 });
 
 function pubSubPayload(array $subscriptionNotification, string $messageId = 'msg-1'): array
@@ -28,6 +56,32 @@ test('it rejects a request without the configured bearer token', function () {
     $this->postJson('/iap-verification/webhooks/google', pubSubPayload(['notificationType' => 2]))
         ->assertStatus(401);
 });
+
+test('it rejects a token that fails Google signature verification', function () {
+    $this->withToken('forged-token')
+        ->postJson('/iap-verification/webhooks/google', pubSubPayload(['notificationType' => 2]))
+        ->assertStatus(401);
+});
+
+test('it rejects a validly signed token minted for another service account or audience', function (array $claims) {
+    fakeGoogleTokenVerifier($claims);
+
+    $this->withToken('test-token')
+        ->postJson('/iap-verification/webhooks/google', pubSubPayload(['notificationType' => 2]))
+        ->assertStatus(401);
+})->with([
+    'other service account' => [['email' => 'someone-else@example.iam.gserviceaccount.com']],
+    'unverified email' => [['email_verified' => false]],
+    'other audience' => [['aud' => 'https://attacker.example/hook']],
+]);
+
+test('it rejects every push while the audience or service account is unconfigured', function (string $key) {
+    config(["iap-verification.webhooks.{$key}" => null]);
+
+    $this->withToken('test-token')
+        ->postJson('/iap-verification/webhooks/google', pubSubPayload(['notificationType' => 2]))
+        ->assertStatus(401);
+})->with(['google_pubsub_audience', 'google_pubsub_service_account']);
 
 test('it rejects a malformed pub/sub envelope', function () {
     $this->withToken('test-token')

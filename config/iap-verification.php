@@ -27,11 +27,14 @@ return [
         'apple_path' => 'iap-verification/webhooks/apple',
         'google_path' => 'iap-verification/webhooks/google',
 
-        // Google RTDN delivers via a Pub/Sub push subscription secured by a
-        // bearer token you configure on the subscription itself — set the
-        // same value here so the controller can verify the request came from
-        // your Pub/Sub subscription and not an open POST endpoint.
-        'google_pubsub_token' => env('IAP_VERIFICATION_GOOGLE_PUBSUB_TOKEN'),
+        // Google RTDN delivers via a Pub/Sub push subscription. Enable
+        // authentication on it; Pub/Sub then signs each push with an OIDC
+        // token for the service account and audience you pick there — set
+        // the same two values here. Both are required: unset, every push is
+        // rejected. The audience defaults, in the subscription's settings, to
+        // the push endpoint URL.
+        'google_pubsub_audience' => env('IAP_VERIFICATION_GOOGLE_PUBSUB_AUDIENCE'),
+        'google_pubsub_service_account' => env('IAP_VERIFICATION_GOOGLE_PUBSUB_SERVICE_ACCOUNT'),
     ],
 
 ];

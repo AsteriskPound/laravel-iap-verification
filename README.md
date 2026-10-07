@@ -29,7 +29,8 @@ APPLE_IAP_ENVIRONMENT=production
 GOOGLE_IAP_PACKAGE_NAME=
 GOOGLE_IAP_SERVICE_ACCOUNT_JSON=
 
-IAP_VERIFICATION_GOOGLE_PUBSUB_TOKEN=
+IAP_VERIFICATION_GOOGLE_PUBSUB_AUDIENCE=
+IAP_VERIFICATION_GOOGLE_PUBSUB_SERVICE_ACCOUNT=
 ```
 
 ## Usage
@@ -61,8 +62,10 @@ yourself if you'd rather):
 - `POST /iap-verification/webhooks/apple` — register this URL in App Store Connect as your App Store Server
   Notifications V2 endpoint.
 - `POST /iap-verification/webhooks/google` — point a Google Cloud Pub/Sub push subscription at this URL,
-  configured for Real-time Developer Notifications in Play Console. Secure it with a bearer token matching
-  `IAP_VERIFICATION_GOOGLE_PUBSUB_TOKEN`.
+  configured for Real-time Developer Notifications in Play Console. Enable authentication on the subscription
+  and set `IAP_VERIFICATION_GOOGLE_PUBSUB_SERVICE_ACCOUNT` to the service account it uses and
+  `IAP_VERIFICATION_GOOGLE_PUBSUB_AUDIENCE` to its audience (by default the endpoint URL). Each push's signed
+  OIDC token is verified against both; with either unset, every push is rejected.
 
 Both dispatch Laravel events (`SubscriptionRenewed`, `SubscriptionExpired`, `SubscriptionRefunded`,
 `SubscriptionRevoked`) — listen for those in your own app to keep your entitlement model in sync. This

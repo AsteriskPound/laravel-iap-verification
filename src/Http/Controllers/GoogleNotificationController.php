@@ -6,6 +6,7 @@ use Asteriskpound\LaravelIapVerification\Events\SubscriptionExpired;
 use Asteriskpound\LaravelIapVerification\Events\SubscriptionRefunded;
 use Asteriskpound\LaravelIapVerification\Events\SubscriptionRenewed;
 use Asteriskpound\LaravelIapVerification\Events\SubscriptionRevoked;
+use Asteriskpound\LaravelIapVerification\GooglePubSubAuthenticator;
 use Asteriskpound\LaravelIapVerification\ProcessedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -13,15 +14,8 @@ use Illuminate\Routing\Controller;
 
 /**
  * Google Real-time Developer Notifications (RTDN), delivered via a Pub/Sub
- * push subscription. Configure that subscription to push here with a bearer
- * token matching config('iap-verification.webhooks.google_pubsub_token').
- *
- * NOTE: a shared bearer token is simpler but weaker than Google Cloud's
- * recommended OIDC token verification for push subscriptions — good enough
- * for a v1 scaffold behind an unguessable path, worth upgrading to real OIDC
- * verification before this is load-bearing for revenue (see PLAN.md Phase 3).
- * The token is required — an unconfigured token fails closed (401) rather
- * than skipping auth, since an open webhook can forge subscription events.
+ * push subscription with authentication enabled — the request's OIDC token is
+ * checked by {@see GooglePubSubAuthenticator}.
  *
  * UNTESTED — not yet received a real notification from a live Pub/Sub
  * subscription (see PLAN.md Phase 3 checkpoint).
@@ -39,10 +33,9 @@ class GoogleNotificationController extends Controller
 
     private const NOTIFICATION_TYPE_EXPIRED = 13;
 
-    public function __invoke(Request $request): Response
+    public function __invoke(Request $request, GooglePubSubAuthenticator $authenticator): Response
     {
-        $expectedToken = config('iap-verification.webhooks.google_pubsub_token');
-        if (! $expectedToken || ! hash_equals($expectedToken, (string) $request->bearerToken())) {
+        if (! $authenticator->authenticates($request->bearerToken())) {
             return response('Unauthorized', 401);
         }
 
