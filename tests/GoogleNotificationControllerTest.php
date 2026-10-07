@@ -159,3 +159,9 @@ test('it is idempotent against a redelivered message id', function () {
 
     Event::assertDispatchedTimes(SubscriptionRenewed::class, 1);
 });
+
+test('the token verifier resolves from the container without symfony/cache installed', function () {
+    app()->forgetInstance(Verify::class);
+
+    expect(app(Verify::class))->toBeInstanceOf(Verify::class);
+});

@@ -2,6 +2,7 @@
 
 namespace Asteriskpound\LaravelIapVerification;
 
+use Google\AccessToken\Verify;
 use Illuminate\Support\ServiceProvider;
 
 class IapVerificationServiceProvider extends ServiceProvider
@@ -14,6 +15,10 @@ class IapVerificationServiceProvider extends ServiceProvider
             $app->make(AppleVerifier::class),
             $app->make(GoogleVerifier::class),
         ));
+
+        // Built directly so the container doesn't autowire its optional PSR-6
+        // cache argument, which Laravel aliases to symfony/cache's Psr16Adapter.
+        $this->app->bind(Verify::class, fn () => new Verify);
     }
 
     public function boot(): void
