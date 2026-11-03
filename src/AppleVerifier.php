@@ -2,8 +2,11 @@
 
 namespace Asteriskpound\LaravelIapVerification;
 
+use ReceiptValidator\AppleAppStore\APIError;
+use ReceiptValidator\AppleAppStore\Transaction;
 use ReceiptValidator\AppleAppStore\Validator as AppleAppStoreValidator;
 use ReceiptValidator\Environment;
+use ReceiptValidator\Exceptions\ValidationException;
 use Throwable;
 
 /**
@@ -32,15 +35,7 @@ class AppleVerifier
         }
 
         try {
-            $validator = new AppleAppStoreValidator(
-                signingKey: file_get_contents($config['private_key_path']),
-                keyId: $config['key_id'],
-                issuerId: $config['issuer_id'],
-                bundleId: $config['bundle_id'],
-                environment: $config['environment'] === 'sandbox' ? Environment::SANDBOX : Environment::PRODUCTION,
-            );
-
-            $transaction = $validator->getTransactionInfo($this->lookupTransactionId($transactionId));
+            $transaction = $this->fetchTransaction($config, $this->lookupTransactionId($transactionId));
 
             if ($transaction->getRevocationDate() !== null) {
                 return VerifiedPurchase::invalid(
@@ -61,6 +56,48 @@ class AppleVerifier
         } catch (Throwable $e) {
             return VerifiedPurchase::invalid($e->getMessage());
         }
+    }
+
+    /**
+     * Looks the transaction up in the configured environment. A production
+     * server still receives sandbox transactions — from App Review and from
+     * TestFlight builds — which Apple's production API doesn't know about, so
+     * per Apple's guidance a "transaction not found" from production is
+     * retried against sandbox. Sandbox transactions can only come from Apple
+     * sandbox/TestFlight accounts, never from a paying App Store customer;
+     * the result's `environment` says which one matched.
+     *
+     * @param  array{issuer_id: string, key_id: string, private_key_path: string, bundle_id: string, environment: ?string}  $config
+     *
+     * @throws ValidationException
+     */
+    private function fetchTransaction(array $config, string $lookupId): Transaction
+    {
+        $environment = $config['environment'] === 'sandbox' ? Environment::SANDBOX : Environment::PRODUCTION;
+
+        try {
+            return $this->makeValidator($config, $environment)->getTransactionInfo($lookupId);
+        } catch (ValidationException $e) {
+            if ($environment !== Environment::PRODUCTION || $e->getCode() !== APIError::TRANSACTION_ID_NOT_FOUND->value) {
+                throw $e;
+            }
+
+            return $this->makeValidator($config, Environment::SANDBOX)->getTransactionInfo($lookupId);
+        }
+    }
+
+    /**
+     * @param  array{issuer_id: string, key_id: string, private_key_path: string, bundle_id: string, environment: ?string}  $config
+     */
+    protected function makeValidator(array $config, Environment $environment): AppleAppStoreValidator
+    {
+        return new AppleAppStoreValidator(
+            signingKey: file_get_contents($config['private_key_path']),
+            keyId: $config['key_id'],
+            issuerId: $config['issuer_id'],
+            bundleId: $config['bundle_id'],
+            environment: $environment,
+        );
     }
 
     /**
