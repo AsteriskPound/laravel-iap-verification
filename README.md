@@ -22,7 +22,8 @@ Set in `.env` (see `config/iap-verification.php` for what each does):
 ```dotenv
 APPLE_IAP_ISSUER_ID=
 APPLE_IAP_KEY_ID=
-APPLE_IAP_PRIVATE_KEY_PATH=
+APPLE_IAP_PRIVATE_KEY=        # the .p8 contents (PEM or base64) — or instead:
+APPLE_IAP_PRIVATE_KEY_PATH=   # a path to the .p8 file
 APPLE_IAP_BUNDLE_ID=
 APPLE_IAP_ENVIRONMENT=production
 

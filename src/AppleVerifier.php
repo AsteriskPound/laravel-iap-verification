@@ -30,11 +30,11 @@ class AppleVerifier
 
         $config = config('iap-verification.apple');
 
-        if (! $config['issuer_id'] || ! $config['key_id'] || ! $config['private_key_path'] || ! $config['bundle_id']) {
-            return VerifiedPurchase::invalid('Apple IAP verification is not configured — set APPLE_IAP_* in .env');
-        }
-
         try {
+            if (! $config['issuer_id'] || ! $config['key_id'] || $this->signingKey($config) === null || ! $config['bundle_id']) {
+                return VerifiedPurchase::invalid('Apple IAP verification is not configured — set APPLE_IAP_* in .env');
+            }
+
             $transaction = $this->fetchTransaction($config, $this->lookupTransactionId($transactionId));
 
             if ($transaction->getRevocationDate() !== null) {
@@ -67,7 +67,7 @@ class AppleVerifier
      * sandbox/TestFlight accounts, never from a paying App Store customer;
      * the result's `environment` says which one matched.
      *
-     * @param  array{issuer_id: string, key_id: string, private_key_path: string, bundle_id: string, environment: ?string}  $config
+     * @param  array{issuer_id: string, key_id: string, private_key?: ?string, private_key_path?: ?string, bundle_id: string, environment: ?string}  $config
      *
      * @throws ValidationException
      */
@@ -87,17 +87,50 @@ class AppleVerifier
     }
 
     /**
-     * @param  array{issuer_id: string, key_id: string, private_key_path: string, bundle_id: string, environment: ?string}  $config
+     * @param  array{issuer_id: string, key_id: string, private_key?: ?string, private_key_path?: ?string, bundle_id: string, environment: ?string}  $config
      */
     protected function makeValidator(array $config, Environment $environment): AppleAppStoreValidator
     {
         return new AppleAppStoreValidator(
-            signingKey: file_get_contents($config['private_key_path']),
+            signingKey: (string) $this->signingKey($config),
             keyId: $config['key_id'],
             issuerId: $config['issuer_id'],
             bundleId: $config['bundle_id'],
             environment: $environment,
         );
+    }
+
+    /**
+     * The .p8 key's PEM contents, from `private_key` (APPLE_IAP_PRIVATE_KEY)
+     * when set, else read from `private_key_path`. The env value may be the
+     * PEM itself — with real line breaks or literal "\n" sequences, for
+     * hosts that keep secrets on one line — or the whole file base64-encoded.
+     * Null when neither is configured.
+     *
+     * @param  array{private_key?: ?string, private_key_path?: ?string}  $config
+     *
+     * @throws \InvalidArgumentException when private_key is set but isn't a PEM key
+     */
+    public function signingKey(array $config): ?string
+    {
+        $key = trim((string) ($config['private_key'] ?? ''));
+
+        if ($key === '') {
+            $path = $config['private_key_path'] ?? null;
+            $contents = $path ? @file_get_contents($path) : false;
+
+            return $contents === false || trim($contents) === '' ? null : $contents;
+        }
+
+        if (! str_contains($key, '-----BEGIN')) {
+            $key = trim((string) base64_decode($key, true));
+        }
+
+        if (! str_contains($key, '-----BEGIN')) {
+            throw new \InvalidArgumentException('APPLE_IAP_PRIVATE_KEY must be the .p8 key\'s PEM contents or the file base64-encoded');
+        }
+
+        return str_replace('\\n', "\n", $key)."\n";
     }
 
     /**

@@ -7,7 +7,11 @@ return [
         // NOT the same as a general App Store Connect API key.
         'issuer_id' => env('APPLE_IAP_ISSUER_ID'),
         'key_id' => env('APPLE_IAP_KEY_ID'),
-        // Path to the downloaded .p8 private key file. Never commit this.
+        // The downloaded .p8 key: either its contents (PEM, or the file
+        // base64-encoded — suits hosts that keep secrets as env vars, like
+        // Laravel Cloud) or a path to the file. The contents win when both
+        // are set. Never commit either.
+        'private_key' => env('APPLE_IAP_PRIVATE_KEY'),
         'private_key_path' => env('APPLE_IAP_PRIVATE_KEY_PATH'),
         'bundle_id' => env('APPLE_IAP_BUNDLE_ID'),
         'environment' => env('APPLE_IAP_ENVIRONMENT', 'production'), // 'production' | 'sandbox'
